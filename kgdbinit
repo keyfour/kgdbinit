@@ -1,0 +1,55 @@
+set auto-solib-add 0
+ 
+#_________configure kgdb environments_____
+define setmod
+  set solib-search-path $arg0
+  info sharedlibrary
+end
+document setmod
+Set search path to kernel modules
+Usage setmod <path-to-modules>
+end
+
+define kgdbserial
+set remotebaud 115200
+target remote /dev/ttyS0
+end
+ 
+define kgdb_start
+set linux-awareness auto_activate 0
+file vmlinux
+set auto-solib-add 1
+kgdbserial
+end
+
+#____some useful commands_________
+define dmesg
+        set $__log_buf = $arg0
+        set $log_start = $arg1
+        set $log_end = $arg2
+        set $x = $log_start
+        echo "
+        while ($x < $log_end)
+                set $c = (char)(($__log_buf)[$x++])
+                printf "%c" , $c
+        end
+        echo "\n
+end
+document dmesg
+dmesg __log_buf log_start log_end
+Print the content of the kernel message buffer
+end
+
+#gdb implementation of the linux lsmod
+ define lsmod
+        set $current = modules.next
+        set $offset =  ((int)&((struct module *)0).list) 
+    printf "Module\tAddress\n"
+ 
+    while($current.next != modules.next)
+                printf "%s\t%p\n",  \
+                        ((struct module *) (((void *) ($current)) - $offset ) )->name ,\
+                        ((struct module *) (((void *) ($current)) - $offset ) )->module_core
+                set $current = $current.next 
+        end
+end
